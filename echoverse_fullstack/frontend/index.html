@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EchoVerse — Web</title>
+  <style>
+    body {font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b1020; color: #e8ecf1}
+    .wrap {max-width: 980px; margin: 40px auto; padding: 0 16px}
+    .card {background:#111735; border:1px solid #1f2750; border-radius:12px; padding:16px}
+    textarea{width:100%; min-height:160px; border-radius:8px; border:1px solid #2a356b; background:#0d1430; color:#e8ecf1; padding:10px}
+    select,input[type=file]{width:100%; border-radius:8px; border:1px solid #2a356b; background:#0d1430; color:#e8ecf1; padding:8px}
+    button{background:#5b7cfa; color:white; border:none; padding:10px 12px; border-radius:8px; cursor:pointer}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap: 12px}
+    audio{width:100%; margin-top: 10px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎧 EchoVerse</h1>
+  <p>Frontend (static) + FastAPI backend demo. Use small text for trial.</p>
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Paste text</label>
+        <textarea id="txt" placeholder="Paste your text here..."></textarea>
+        <label style="margin-top:8px">Or upload .txt</label>
+        <input id="file" type="file" accept=".txt" />
+      </div>
+      <div>
+        <label>Tone</label>
+        <select id="tone"><option>Neutral</option><option>Suspenseful</option><option>Inspiring</option></select>
+        <label style="margin-top:8px">Voice</label>
+        <input id="voice" placeholder="e.g. en-US_AllisonV3Voice" />
+        <div style="margin-top:12px">
+          <button id="rewriteBtn">Rewrite</button>
+          <button id="genBtn">Generate Audio</button>
+        </div>
+      </div>
+    </div>
+    <div id="status" style="margin-top:10px"></div>
+    <h3>Original</h3><pre id="orig" style="white-space:pre-wrap"></pre>
+    <h3>Rewrite</h3><pre id="rew" style="white-space:pre-wrap"></pre>
+    <h3>Audio</h3><audio id="audio" controls></audio>
+  </div>
+</div>
+<script>
+const API_BASE = 'http://localhost:8000';
+const el = id => document.getElementById(id);
+el('file').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  el('status').innerText = 'Uploading file...';
+  const r = await fetch(API_BASE + '/api/upload-txt', { method:'POST', body: fd });
+  const j = await r.json();
+  if(r.ok){ el('txt').value = j.text || ''; el('status').innerText='Loaded.' } else { el('status').innerText = j.error || 'Upload failed' }
+});
+el('rewriteBtn').addEventListener('click', async ()=>{
+  const text = el('txt').value.trim(); if(!text) return alert('Paste text first');
+  el('status').innerText = 'Rewriting...';
+  const res = await fetch(API_BASE + '/api/rewrite', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, tone: el('tone').value }) });
+  const j = await res.json();
+  if(res.ok){ el('orig').innerText = text; el('rew').innerText = j.rewrite || '(no output)'; el('status').innerText='Done' } else { el('status').innerText = j.error || 'Rewrite failed' }
+});
+el('genBtn').addEventListener('click', async ()=>{
+  const text = el('txt').value.trim(); if(!text) return alert('Paste text first');
+  el('status').innerText = 'Generating...';
+  const fd = new FormData(); fd.append('text', text); fd.append('tone', el('tone').value); fd.append('voice', el('voice').value);
+  const r = await fetch(API_BASE + '/api/generate', { method:'POST', body: fd });
+  if(!r.ok){ const j=await r.json(); el('status').innerText = j.error || 'Generate failed'; return; }
+  const blob = await r.blob(); const url = URL.createObjectURL(blob); el('audio').src = url; el('status').innerText='Done';
+  const jr = await fetch(API_BASE + '/api/rewrite', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, tone: el('tone').value }) }).then(r=>r.json());
+  el('orig').innerText = text; el('rew').innerText = jr.rewrite || '(no output)';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+fastapi==0.111.0
+uvicorn[standard]==0.20.0
+python-multipart==0.0.6
+pydantic==2.8.2
+ibm-watsonx-ai==1.2.8
+ibm-watson==8.1.0
+python-dotenv==1.0.0
